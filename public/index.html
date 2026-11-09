@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Find My Car - Giám Sát Xe Thông Minh</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --apple-bg: #f5f5f7;
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-border: rgba(0, 0, 0, 0.08);
+      --apple-green: #34c759;
+      --apple-blue: #0071e3;
+      --apple-dark: #1d1d1f;
+      --apple-gray: #86868b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--apple-bg);
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Floating Header */
+    .top-bar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .brand-pill {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 10px 18px;
+      border-radius: 999px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--apple-green);
+      box-shadow: 0 0 10px var(--apple-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--apple-dark);
+      letter-spacing: -0.2px;
+    }
+
+    .action-group {
+      display: flex;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .btn-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--apple-dark);
+      transition: all 0.2s ease;
+    }
+    .btn-circle:hover {
+      transform: scale(1.05);
+      background: #ffffff;
+    }
+
+    /* Apple Find My Sheet */
+    .find-my-panel {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 92%;
+      max-width: 460px;
+      background: var(--card-bg);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-radius: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+      z-index: 1000;
+      padding: 22px 24px 20px;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .panel-handle {
+      width: 40px;
+      height: 5px;
+      background: #d1d1d6;
+      border-radius: 10px;
+      margin: 0 auto 16px;
+    }
+
+    .device-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .device-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .car-avatar {
+      width: 48px;
+      height: 48px;
+      background: #1c1c1e;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    }
+
+    .car-name {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--apple-dark);
+      line-height: 1.2;
+    }
+
+    .car-status {
+      font-size: 13px;
+      color: var(--apple-green);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 2px;
+    }
+
+    /* Grid metrics */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(0,0,0,0.05);
+      border-radius: 18px;
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--apple-gray);
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--apple-dark);
+    }
+
+    .metric-sub {
+      font-size: 10px;
+      color: var(--apple-gray);
+    }
+
+    /* Address card */
+    .address-card {
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(0,0,0,0.05);
+      border-radius: 18px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .address-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--apple-dark);
+      line-height: 1.4;
+    }
+
+    .address-coords {
+      font-size: 11px;
+      color: var(--apple-gray);
+      margin-top: 3px;
+      font-family: monospace;
+    }
+
+    /* Bottom Action Buttons */
+    .button-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: none;
+      background: #f2f2f7;
+      color: var(--apple-dark);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-action.primary {
+      background: var(--apple-blue);
+      color: #fff;
+    }
+
+    .btn-action:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(8px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 500px;
+      background: #fff;
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .btn-close {
+      cursor: pointer;
+      border: none;
+      background: #f2f2f7;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Custom Leaflet Car Marker */
+    .car-marker-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .car-pulse-ring {
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      background: rgba(0, 113, 227, 0.25);
+      border-radius: 50%;
+      animation: car-pulse 2s infinite ease-out;
+    }
+
+    .car-marker-bubble {
+      width: 36px;
+      height: 36px;
+      background: #0071e3;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+      z-index: 2;
+    }
+
+    @keyframes car-pulse {
+      0% { transform: scale(0.6); opacity: 0.9; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    /* Playback controller strip */
+    #playbackStrip {
+      display: none;
+      margin-top: 12px;
+      background: #f2f2f7;
+      border-radius: 16px;
+      padding: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Floating Status Bar -->
+  <div class="top-bar">
+    <div class="brand-pill">
+      <div class="brand-dot"></div>
+      <span class="brand-title">Thiết Bị Của Tôi</span>
+    </div>
+    <div class="action-group">
+      <button class="btn-circle" id="btnRefresh" title="Làm mới"><i data-lucide="rotate-cw"></i></button>
+      <button class="btn-circle" id="btnReport" title="Báo cáo Km"><i data-lucide="bar-chart-3"></i></button>
+    </div>
+  </div>
+
+  <!-- Interactive Map -->
+  <div id="map"></div>
+
+  <!-- Apple Find My Bottom Sheet -->
+  <div class="find-my-panel">
+    <div class="panel-handle"></div>
+
+    <div class="device-header">
+      <div class="device-title-wrap">
+        <div class="car-avatar">
+          <i data-lucide="car" style="width: 26px; height: 26px;"></i>
+        </div>
+        <div>
+          <div class="car-name" id="uiDeviceName">Xe Ô Tô Của Bạn</div>
+          <div class="car-status">
+            <i data-lucide="activity" style="width: 14px; height: 14px;"></i>
+            <span id="uiLastUpdated">Đang kết nối...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 Metrics: Speed, Network, Battery -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Tốc Độ</div>
+        <div class="metric-value"><span id="uiSpeed">0</span> <span style="font-size: 11px; font-weight: normal;">km/h</span></div>
+        <div class="metric-sub" id="uiSpeedStatus">Đang dừng</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Mạng</div>
+        <div class="metric-value" id="uiNetwork">4G LTE</div>
+        <div class="metric-sub" style="color: var(--apple-green);">Trực tuyến</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Pin Thiết Bị</div>
+        <div class="metric-value"><span id="uiBattery">--</span>%</div>
+        <div class="metric-sub" id="uiBatteryStatus">Bình thường</div>
+      </div>
+    </div>
+
+    <!-- Address info -->
+    <div class="address-card">
+      <i data-lucide="map-pin" style="color: var(--apple-blue); margin-top: 2px; width: 20px; height: 20px; flex-shrink: 0;"></i>
+      <div>
+        <div class="address-text" id="uiAddress">Đang tải địa chỉ vị trí...</div>
+        <div class="address-coords" id="uiCoords">10.7769, 106.7009</div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="button-row">
+      <button class="btn-action primary" id="btnFocusCar">
+        <i data-lucide="locate-fixed" style="width: 16px; height: 16px;"></i>
+        Định vị xe
+      </button>
+      <button class="btn-action" id="btnOpenPlayback">
+        <i data-lucide="history" style="width: 16px; height: 16px;"></i>
+        Xem lộ trình (7 ngày)
+      </button>
+    </div>
+
+    <!-- Playback bar -->
+    <div id="playbackStrip">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 12px; font-weight: 600;">Lộ trình ngày: <input type="date" id="playbackDate" style="border: 1px solid #ccc; border-radius: 6px; padding: 2px 6px;"></span>
+        <button id="btnPlayPause" style="border: none; background: var(--apple-blue); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 12px; cursor: pointer;">Phát</button>
+      </div>
+      <input type="range" id="playbackSlider" min="0" max="100" value="0" style="width: 100%;">
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--apple-gray); margin-top: 4px;">
+        <span id="playbackCurrentTime">00:00</span>
+        <span id="playbackSpeedText">0 km/h</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Báo Cáo Kilomet Tháng -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Báo Cáo Kilomet Tổng Hợp</h3>
+        <button class="btn-close" id="btnCloseModal"><i data-lucide="x" style="width: 18px; height: 18px;"></i></button>
+      </div>
+
+      <div style="background: #f0f7ff; border-radius: 18px; padding: 18px; margin-bottom: 16px; text-align: center;">
+        <div style="font-size: 13px; color: var(--apple-blue); font-weight: 600; text-transform: uppercase;">Tổng quãng đường tháng này</div>
+        <div style="font-size: 32px; font-weight: 800; color: var(--apple-dark); margin: 6px 0;"><span id="uiTotalMonthKm">0.0</span> km</div>
+        <div style="font-size: 12px; color: var(--apple-gray);">Dữ liệu cuốn chiếu tự động 30 ngày gần nhất</div>
+      </div>
+
+      <div style="font-size: 14px; font-weight: 700; margin-bottom: 10px;">Chi tiết từng ngày:</div>
+      <div id="reportList" style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- Rows populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    lucide.createIcons();
+
+    // Map init (Sử dụng tile sáng, sạch sẽ phong cách Apple Maps)
+    const map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([10.7769, 106.7009], 16);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    // Car Custom Marker Icon
+    const carIconHtml = `
+      <div class="car-marker-container">
+        <div class="car-pulse-ring"></div>
+        <div class="car-marker-bubble">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+        </div>
+      </div>
+    `;
+
+    const carMarkerIcon = L.divIcon({
+      className: 'custom-car-icon',
+      html: carIconHtml,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
+
+    let liveMarker = null;
+    let historyPolyline = null;
+    let historyPoints = [];
+    let playbackInterval = null;
+    let currentPos = null;
+
+    // Fetch Live Data
+    async function fetchLatest() {
+      try {
+        const res = await fetch('/api/latest');
+        const json = await res.json();
+        if (json.success && json.data) {
+          updateUI(json.data);
+        }
+      } catch (err) {
+        console.warn('Lỗi khi fetch vị trí mới nhất:', err);
+      }
+    }
+
+    function updateUI(data) {
+      currentPos = [data.latitude, data.longitude];
+      
+      if (!liveMarker) {
+        liveMarker = L.marker(currentPos, { icon: carMarkerIcon }).addTo(map);
+        map.setView(currentPos, 16);
+      } else {
+        liveMarker.setLatLng(currentPos);
+      }
+
+      document.getElementById('uiSpeed').innerText = data.speed || 0;
+      document.getElementById('uiSpeedStatus').innerText = data.speed > 5 ? 'Đang di chuyển' : 'Đang dừng';
+      document.getElementById('uiNetwork').innerText = data.networkType || '4G';
+      document.getElementById('uiBattery').innerText = data.battery || '--';
+      document.getElementById('uiCoords').innerText = `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+      
+      const timeStr = new Date(data.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('uiLastUpdated').innerText = `Vừa cập nhật lúc ${timeStr}`;
+
+      if (data.address) {
+        document.getElementById('uiAddress').innerText = data.address;
+      } else {
+        reverseGeocode(data.latitude, data.longitude);
+      }
+    }
+
+    async function reverseGeocode(lat, lon) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+        const data = await res.json();
+        if (data && data.display_name) {
+          document.getElementById('uiAddress').innerText = data.display_name;
+        }
+      } catch (e) {}
+    }
+
+    // Focus to car
+    document.getElementById('btnFocusCar').addEventListener('click', () => {
+      if (currentPos) {
+        map.flyTo(currentPos, 17, { duration: 1.2 });
+      }
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', fetchLatest);
+
+    // Toggle Playback Strip
+    const playbackStrip = document.getElementById('playbackStrip');
+    document.getElementById('btnOpenPlayback').addEventListener('click', () => {
+      if (playbackStrip.style.display === 'block') {
+        playbackStrip.style.display = 'none';
+        if (historyPolyline) map.removeLayer(historyPolyline);
+      } else {
+        playbackStrip.style.display = 'block';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('playbackDate').value = today;
+        loadHistory(today);
+      }
+    });
+
+    document.getElementById('playbackDate').addEventListener('change', (e) => {
+      loadHistory(e.target.value);
+    });
+
+    async function loadHistory(dateStr) {
+      try {
+        const res = await fetch(`/api/history?date=${dateStr}`);
+        const json = await res.json();
+        historyPoints = json.data || [];
+
+        if (historyPolyline) map.removeLayer(historyPolyline);
+
+        if (historyPoints.length === 0) {
+          alert('Không có dữ liệu lộ trình cho ngày này!');
+          return;
+        }
+
+        const latlngs = historyPoints.map(p => [p.latitude, p.longitude]);
+        historyPolyline = L.polyline(latlngs, {
+          color: '#0071e3',
+          weight: 5,
+          opacity: 0.85,
+          lineJoin: 'round'
+        }).addTo(map);
+
+        map.fitBounds(historyPolyline.getBounds(), { padding: [50, 50] });
+
+        const slider = document.getElementById('playbackSlider');
+        slider.max = historyPoints.length - 1;
+        slider.value = 0;
+        updatePlaybackPoint(0);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function updatePlaybackPoint(index) {
+      if (!historyPoints[index]) return;
+      const point = historyPoints[index];
+      if (liveMarker) {
+        liveMarker.setLatLng([point.latitude, point.longitude]);
+      }
+      const timeStr = new Date(point.timestamp).toLocaleTimeString('vi-VN');
+      document.getElementById('playbackCurrentTime').innerText = timeStr;
+      document.getElementById('playbackSpeedText').innerText = `${point.speed} km/h - Pin: ${point.battery}%`;
+    }
+
+    const slider = document.getElementById('playbackSlider');
+    slider.addEventListener('input', (e) => {
+      updatePlaybackPoint(Number(e.target.value));
+    });
+
+    const btnPlayPause = document.getElementById('btnPlayPause');
+    btnPlayPause.addEventListener('click', () => {
+      if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+        btnPlayPause.innerText = 'Phát';
+      } else {
+        btnPlayPause.innerText = 'Tạm dừng';
+        playbackInterval = setInterval(() => {
+          let next = Number(slider.value) + 1;
+          if (next >= historyPoints.length) {
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            btnPlayPause.innerText = 'Phát';
+            return;
+          }
+          slider.value = next;
+          updatePlaybackPoint(next);
+        }, 300);
+      }
+    });
+
+    // Monthly Mileage Report Modal
+    const reportModal = document.getElementById('reportModal');
+    document.getElementById('btnReport').addEventListener('click', async () => {
+      reportModal.style.display = 'flex';
+      try {
+        const res = await fetch('/api/mileage-report');
+        const json = await res.json();
+        if (json.success) {
+          document.getElementById('uiTotalMonthKm').innerText = json.totalMonthKm;
+          const container = document.getElementById('reportList');
+          container.innerHTML = '';
+          
+          if (!json.days || json.days.length === 0) {
+            container.innerHTML = '<div style="color: var(--apple-gray); text-align: center; padding: 20px;">Chưa có dữ liệu kilomet nào trong tháng này.</div>';
+            return;
+          }
+
+          json.days.forEach(item => {
+            const div = document.createElement('div');
+            div.style.cssText = 'background: #f8f8fa; border-radius: 14px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;';
+            div.innerHTML = `
+              <div>
+                <div style="font-weight: 700; font-size: 14px;">${item.date}</div>
+                <div style="font-size: 11px; color: var(--apple-gray);">Tốc độ cao nhất: ${item.maxSpeed || 0} km/h</div>
+              </div>
+              <div style="font-weight: 800; font-size: 16px; color: var(--apple-blue);">
+                ${item.distanceKm} <span style="font-size: 11px; font-weight: normal;">km</span>
+              </div>
+            `;
+            container.appendChild(div);
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    document.getElementById('btnCloseModal').addEventListener('click', () => {
+      reportModal.style.display = 'none';
+    });
+
+    // Auto poll latest every 5 seconds
+    fetchLatest();
+    setInterval(fetchLatest, 5000);
+  </script>
+</body>
+</html>
