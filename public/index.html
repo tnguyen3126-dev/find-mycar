@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Find My Car - Giám Sát Xe Thông Minh</title>
+  <title>Find My Car - Giám Sát & Dẫn Đường Xe Thông Minh</title>
   
-  <!-- Leaflet CSS (Cloudflare CDN - Siêu nhanh & ổn định tại VN) -->
+  <!-- Leaflet CSS (Cloudflare CDN) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-  
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,10 +15,11 @@
   <style>
     :root {
       --apple-bg: #f5f5f7;
-      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-bg: rgba(255, 255, 255, 0.94);
       --card-border: rgba(0, 0, 0, 0.08);
       --apple-green: #34c759;
       --apple-blue: #0071e3;
+      --apple-red: #ff3b30;
       --apple-dark: #1d1d1f;
       --apple-gray: #86868b;
     }
@@ -41,7 +41,6 @@
       background-color: #e5e3df;
     }
 
-    /* Bản đồ toàn màn hình tuyệt đối */
     #map {
       position: absolute;
       top: 0;
@@ -51,7 +50,7 @@
       z-index: 1;
     }
 
-    /* Floating Header */
+    /* Top Floating Bar */
     .top-bar {
       position: absolute;
       top: 16px;
@@ -75,7 +74,13 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      cursor: pointer;
       pointer-events: auto;
+      transition: all 0.2s ease;
+    }
+    .brand-pill:hover {
+      background: #ffffff;
+      transform: translateY(-1px);
     }
 
     .brand-dot {
@@ -126,6 +131,115 @@
       background: #ffffff;
     }
 
+    /* Navigation HUD Overlay (Hiển thị dẫn đường & Biển báo tốc độ) */
+    .nav-hud {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 92%;
+      max-width: 520px;
+      background: #1c1c1e;
+      color: #ffffff;
+      border-radius: 24px;
+      padding: 14px 18px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from { transform: translate(-50%, -20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    .nav-instruction {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .nav-turn-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--apple-blue);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .nav-text-main {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .nav-text-sub {
+      font-size: 12px;
+      color: #8e8e93;
+      margin-top: 2px;
+    }
+
+    /* Biển báo giao thông tốc độ giới hạn chuẩn Việt Nam */
+    .speed-sign-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .speed-limit-sign {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 5px solid #ff3b30;
+      color: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+      position: relative;
+    }
+
+    .speed-limit-sign.warning {
+      animation: speedBlink 0.6s infinite alternate;
+    }
+
+    @keyframes speedBlink {
+      0% { transform: scale(1); border-color: #ff3b30; box-shadow: 0 0 10px #ff3b30; }
+      100% { transform: scale(1.15); border-color: #ffcc00; box-shadow: 0 0 25px #ff3b30; }
+    }
+
+    .speed-sign-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #8e8e93;
+    }
+
+    .btn-exit-nav {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: #fff;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
     /* Apple Find My Sheet */
     .find-my-panel {
       position: absolute;
@@ -133,7 +247,7 @@
       left: 50%;
       transform: translateX(-50%);
       width: 92%;
-      max-width: 460px;
+      max-width: 480px;
       background: var(--card-bg);
       backdrop-filter: blur(28px);
       -webkit-backdrop-filter: blur(28px);
@@ -141,7 +255,7 @@
       border: 1px solid rgba(255, 255, 255, 0.8);
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
       z-index: 1000;
-      padding: 22px 24px 20px;
+      padding: 20px 22px 18px;
       transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
@@ -150,14 +264,14 @@
       height: 5px;
       background: #d1d1d6;
       border-radius: 10px;
-      margin: 0 auto 16px;
+      margin: 0 auto 14px;
     }
 
     .device-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .device-title-wrap {
@@ -167,8 +281,8 @@
     }
 
     .car-avatar {
-      width: 48px;
-      height: 48px;
+      width: 46px;
+      height: 46px;
       background: #1c1c1e;
       border-radius: 16px;
       display: flex;
@@ -179,14 +293,26 @@
     }
 
     .car-name {
-      font-size: 19px;
+      font-size: 18px;
       font-weight: 700;
       color: var(--apple-dark);
       line-height: 1.2;
     }
 
+    .car-plate {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      background: #e5e5ea;
+      padding: 2px 7px;
+      border-radius: 6px;
+      margin-top: 3px;
+      color: var(--apple-dark);
+      letter-spacing: 0.5px;
+    }
+
     .car-status {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--apple-green);
       font-weight: 600;
       display: flex;
@@ -199,28 +325,28 @@
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 12px;
     }
 
     .metric-card {
       background: rgba(255, 255, 255, 0.7);
       border: 1px solid rgba(0,0,0,0.05);
-      border-radius: 18px;
-      padding: 12px 10px;
+      border-radius: 16px;
+      padding: 10px 8px;
       text-align: center;
     }
 
     .metric-label {
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--apple-gray);
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
 
     .metric-value {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--apple-dark);
     }
@@ -230,21 +356,21 @@
       color: var(--apple-gray);
     }
 
-    /* Address card */
+    /* Detailed Address card */
     .address-card {
       background: rgba(255, 255, 255, 0.7);
       border: 1px solid rgba(0,0,0,0.05);
-      border-radius: 18px;
-      padding: 12px 16px;
+      border-radius: 16px;
+      padding: 12px 14px;
       display: flex;
       align-items: flex-start;
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .address-text {
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       color: var(--apple-dark);
       line-height: 1.4;
     }
@@ -256,16 +382,16 @@
       font-family: monospace;
     }
 
-    /* Bottom Action Buttons */
+    /* Action Buttons */
     .button-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
 
     .btn-action {
       flex: 1;
-      padding: 12px 14px;
-      border-radius: 16px;
+      padding: 11px 12px;
+      border-radius: 14px;
       border: none;
       background: #f2f2f7;
       color: var(--apple-dark);
@@ -275,7 +401,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
       transition: all 0.2s ease;
     }
 
@@ -289,7 +415,7 @@
       transform: translateY(-1px);
     }
 
-    /* Modal styles */
+    /* Modals & Overlays */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -307,7 +433,7 @@
 
     .modal-box {
       width: 100%;
-      max-width: 500px;
+      max-width: 480px;
       background: #fff;
       border-radius: 28px;
       padding: 24px;
@@ -340,7 +466,76 @@
       justify-content: center;
     }
 
-    /* Custom Leaflet Car Marker */
+    /* Login Screen Card */
+    #loginScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(245, 245, 247, 0.95);
+      backdrop-filter: blur(20px);
+      z-index: 3000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 400px;
+      background: #ffffff;
+      border-radius: 32px;
+      padding: 32px 28px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(0,0,0,0.06);
+      text-align: center;
+    }
+
+    .form-group {
+      text-align: left;
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--apple-gray);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 1px solid #d1d1d6;
+      font-size: 14px;
+      background: #fbfbfd;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--apple-blue);
+      background: #ffffff;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: var(--apple-blue);
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    /* Car Marker */
     .car-marker-container {
       position: relative;
       display: flex;
@@ -376,38 +571,104 @@
       100% { transform: scale(1.6); opacity: 0; }
     }
 
-    /* Playback controller strip */
+    /* Devices drawer */
+    .device-item-card {
+      background: #f8f8fa;
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+      margin-bottom: 8px;
+    }
+    .device-item-card.active {
+      border-color: var(--apple-blue);
+      background: #eff6ff;
+    }
+
     #playbackStrip {
       display: none;
       margin-top: 12px;
       background: #f2f2f7;
-      border-radius: 16px;
+      border-radius: 14px;
       padding: 12px;
     }
   </style>
 </head>
 <body>
 
-  <!-- Top Floating Status Bar -->
+  <!-- 1. Màn hình Đăng Nhập Bảo Vệ Toàn Hệ Thống -->
+  <div id="loginScreen">
+    <div class="login-box">
+      <div style="width: 56px; height: 56px; background: #1c1c1e; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #fff;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+      </div>
+      <h2 style="font-size: 22px; font-weight: 800; color: var(--apple-dark);">Find My Car</h2>
+      <p style="font-size: 13px; color: var(--apple-gray); margin: 6px 0 22px;">Đăng nhập để theo dõi và quản lý phương tiện</p>
+
+      <form id="formLogin">
+        <div class="form-group">
+          <label class="form-label">Tài khoản</label>
+          <input type="text" id="loginUsername" class="form-input" placeholder="admin" value="admin" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mật khẩu</label>
+          <input type="password" id="loginPassword" class="form-input" placeholder="admin123" value="admin123" required>
+        </div>
+        <button type="submit" class="btn-submit" id="btnLoginSubmit">Đăng Nhập</button>
+      </form>
+      <div style="font-size: 12px; color: var(--apple-gray); margin-top: 14px;">Mặc định: tài khoản <b>admin</b> | mật khẩu <b>admin123</b></div>
+    </div>
+  </div>
+
+  <!-- 2. Thanh tiêu đề nổi (Top Floating Bar) -->
   <div class="top-bar">
-    <div class="brand-pill">
+    <div class="brand-pill" id="btnDeviceList">
       <div class="brand-dot"></div>
-      <span class="brand-title">Thiết Bị Của Tôi</span>
+      <span class="brand-title" id="topDeviceTitle">Thiết Bị Của Tôi</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
     </div>
     <div class="action-group">
-      <button class="btn-circle" id="btnRefresh" title="Làm mới">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+      <button class="btn-circle" id="btnAddDevice" title="Thêm thiết bị mới">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
-      <button class="btn-circle" id="btnReport" title="Báo cáo Km">
+      <button class="btn-circle" id="btnReport" title="Báo cáo Km tháng">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+      </button>
+      <button class="btn-circle" id="btnLogout" title="Đăng xuất">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
   </div>
 
-  <!-- Interactive Map (Chiếm 100% màn hình) -->
+  <!-- 3. Thanh Dẫn Đường & Biển Báo Giao Thông Tốc Độ (HUD Overlay) -->
+  <div class="nav-hud" id="navHud">
+    <div class="nav-instruction">
+      <div class="nav-turn-icon" id="navTurnIcon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </div>
+      <div>
+        <div class="nav-text-main" id="navTextDistance">Còn 3.2 km (8 phút)</div>
+        <div class="nav-text-sub" id="navTextRoad">Đi theo lộ trình tối ưu</div>
+      </div>
+    </div>
+
+    <!-- Biển Báo Giới Hạn Tốc Độ Chuẩn Việt Nam -->
+    <div class="speed-sign-wrap">
+      <div class="speed-limit-sign" id="speedSignValue">50</div>
+      <div class="speed-sign-label" id="speedSignLabel">TỐC ĐỘ TỐI ĐA</div>
+    </div>
+
+    <button class="btn-exit-nav" id="btnExitNav" title="Tắt dẫn đường">✕</button>
+  </div>
+
+  <!-- 4. Bản đồ toàn màn hình -->
   <div id="map"></div>
 
-  <!-- Apple Find My Bottom Sheet -->
+  <!-- 5. Apple Find My Bottom Sheet -->
   <div class="find-my-panel">
     <div class="panel-handle"></div>
 
@@ -418,8 +679,9 @@
         </div>
         <div>
           <div class="car-name" id="uiDeviceName">Xe Ô Tô Của Bạn</div>
+          <span class="car-plate" id="uiPlateNumber">51K-999.88</span>
           <div class="car-status">
-            <span style="display:inline-block; width:8px; height:8px; background:var(--apple-green); border-radius:50%;"></span>
+            <span style="display:inline-block; width:7px; height:7px; background:var(--apple-green); border-radius:50%;"></span>
             <span id="uiLastUpdated">Đang tải vị trí...</span>
           </div>
         </div>
@@ -445,24 +707,28 @@
       </div>
     </div>
 
-    <!-- Address info -->
+    <!-- Detailed Address Card -->
     <div class="address-card">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--apple-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top: 2px; flex-shrink: 0;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
       <div>
-        <div class="address-text" id="uiAddress">Đang tải địa chỉ vị trí...</div>
+        <div class="address-text" id="uiAddress">Đang tải chi tiết số nhà, tên đường, phường, quận...</div>
         <div class="address-coords" id="uiCoords">10.776900, 106.700900</div>
       </div>
     </div>
 
-    <!-- Buttons -->
+    <!-- Action Buttons -->
     <div class="button-row">
       <button class="btn-action primary" id="btnFocusCar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
         Định vị xe
+      </button>
+      <button class="btn-action" id="btnStartNavPrompt">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+        Dẫn đường
       </button>
       <button class="btn-action" id="btnOpenPlayback">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
-        Xem lộ trình (7 ngày)
+        Lộ trình
       </button>
     </div>
 
@@ -480,21 +746,54 @@
     </div>
   </div>
 
+  <!-- Modal Danh Sách Thiết Bị -->
+  <div class="modal-overlay" id="deviceListModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Danh Sách Phương Tiện</h3>
+        <button class="btn-close" id="btnCloseDeviceList">✕</button>
+      </div>
+      <div id="devicesContainer"></div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Thiết Bị Mới -->
+  <div class="modal-overlay" id="addDeviceModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Thêm Thiết Bị Mới</h3>
+        <button class="btn-close" id="btnCloseAddDevice">✕</button>
+      </div>
+      <form id="formAddDevice">
+        <div class="form-group">
+          <label class="form-label">Tên thiết bị / Xe</label>
+          <input type="text" id="addDeviceName" class="form-input" placeholder="Ví dụ: Xe Mercedes C300, Xe Tải 1" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mã ID Thiết Bị (Khớp với mã trên App điện thoại)</label>
+          <input type="text" id="addDeviceId" class="form-input" placeholder="Ví dụ: car_02 hoặc SM-G998B" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Biển số xe</label>
+          <input type="text" id="addDevicePlate" class="form-input" placeholder="Ví dụ: 51K-123.45" required>
+        </div>
+        <button type="submit" class="btn-submit">Lưu Phương Tiện</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal Báo Cáo Kilomet Tháng -->
   <div class="modal-overlay" id="reportModal">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 class="modal-title">Báo Cáo Kilomet Tổng Hợp</h3>
+        <h3 class="modal-title">Báo Cáo Kilomet Tháng</h3>
         <button class="btn-close" id="btnCloseModal">✕</button>
       </div>
-
       <div style="background: #f0f7ff; border-radius: 18px; padding: 18px; margin-bottom: 16px; text-align: center;">
-        <div style="font-size: 13px; color: var(--apple-blue); font-weight: 600; text-transform: uppercase;">Tổng quãng đường tháng này</div>
+        <div style="font-size: 13px; color: var(--apple-blue); font-weight: 600; text-transform: uppercase;">Tổng quãng đường 30 ngày qua</div>
         <div style="font-size: 32px; font-weight: 800; color: var(--apple-dark); margin: 6px 0;"><span id="uiTotalMonthKm">0.0</span> km</div>
-        <div style="font-size: 12px; color: var(--apple-gray);">Dữ liệu cuốn chiếu tự động 30 ngày gần nhất</div>
+        <div style="font-size: 12px; color: var(--apple-gray);">Dữ liệu tự động cuốn chiếu mỗi ngày</div>
       </div>
-
-      <div style="font-size: 14px; font-weight: 700; margin-bottom: 10px;">Chi tiết từng ngày:</div>
       <div id="reportList" style="display: flex; flex-direction: column; gap: 8px;"></div>
     </div>
   </div>
@@ -503,27 +802,86 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 
   <script>
-    // 1. Khởi tạo bản đồ với độ tin cậy tuyệt đối
-    let map;
-    try {
-      map = L.map('map', {
-        zoomControl: false,
-        attributionControl: false
-      }).setView([10.7769, 106.7009], 16);
+    // === 1. QUẢN LÝ ĐĂNG NHẬP & PHIÊN LÀM VIỆC ===
+    let authToken = localStorage.getItem('findmy_auth_token') || '';
+    let selectedDeviceId = localStorage.getItem('findmy_selected_device') || 'car_default';
+    let devicesList = [];
 
-      // Sử dụng Google Maps Tiles: Siêu mượt, không bao giờ bị chặn/lag tại Việt Nam
-      L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-        maxZoom: 20
-      }).addTo(map);
+    const loginScreen = document.getElementById('loginScreen');
+    const formLogin = document.getElementById('formLogin');
 
-      // Đảm bảo Leaflet vẽ lại đúng kích thước màn hình
-      setTimeout(() => { map.invalidateSize(); }, 250);
-      window.addEventListener('resize', () => { map.invalidateSize(); });
-    } catch (e) {
-      console.error('Lỗi khởi tạo Leaflet map:', e);
+    async function checkAuth() {
+      if (!authToken) {
+        loginScreen.style.display = 'flex';
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/verify', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          loginScreen.style.display = 'none';
+          initApp();
+        } else {
+          loginScreen.style.display = 'flex';
+        }
+      } catch (e) {
+        loginScreen.style.display = 'flex';
+      }
     }
 
-    // 2. Icon xe ô tô Apple Find My
+    formLogin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success && data.token) {
+          authToken = data.token;
+          localStorage.setItem('findmy_auth_token', authToken);
+          loginScreen.style.display = 'none';
+          initApp();
+        } else {
+          alert(data.message || 'Sai tên đăng nhập hoặc mật khẩu!');
+        }
+      } catch (err) {
+        alert('Lỗi kết nối máy chủ!');
+      }
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => {
+      if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+        fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        localStorage.removeItem('findmy_auth_token');
+        authToken = '';
+        loginScreen.style.display = 'flex';
+      }
+    });
+
+    // === 2. BẢN ĐỒ & KHỞI TẠO ===
+    let map = L.map('map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([10.7769, 106.7009], 16);
+
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20
+    }).addTo(map);
+
+    setTimeout(() => { map.invalidateSize(); }, 250);
+    window.addEventListener('resize', () => { map.invalidateSize(); });
+
+    // Icon Marker xe
     const carIconHtml = `
       <div class="car-marker-container">
         <div class="car-pulse-ring"></div>
@@ -532,7 +890,6 @@
         </div>
       </div>
     `;
-
     const carMarkerIcon = L.divIcon({
       className: 'custom-car-icon',
       html: carIconHtml,
@@ -540,21 +897,127 @@
       iconAnchor: [20, 20]
     });
 
-    let liveMarker = null;
+    let liveMarker = L.marker([10.7769, 106.7009], { icon: carMarkerIcon }).addTo(map);
+    let currentPos = [10.7769, 106.7009];
+    let currentSpeed = 0;
     let historyPolyline = null;
     let historyPoints = [];
     let playbackInterval = null;
-    let currentPos = [10.7769, 106.7009];
 
-    // Đặt marker mặc định ban đầu
-    if (map) {
-      liveMarker = L.marker(currentPos, { icon: carMarkerIcon }).addTo(map);
+    // Routing & Navigation variables
+    let navRouteLine = null;
+    let destMarker = null;
+    let isSelectingDestination = false;
+    let currentSpeedLimit = 50; // Giới hạn mặc định: 50 km/h (Khu đông dân cư)
+
+    // === 3. QUẢN LÝ NHIỀU THIẾT BỊ ===
+    async function loadDevices() {
+      try {
+        const res = await fetch('/api/devices', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          devicesList = json.data;
+          renderDeviceListModal();
+          
+          const currentDev = devicesList.find(d => d.id === selectedDeviceId) || devicesList[0];
+          if (currentDev) {
+            selectedDeviceId = currentDev.id;
+            localStorage.setItem('findmy_selected_device', selectedDeviceId);
+            document.getElementById('topDeviceTitle').innerText = currentDev.name;
+            document.getElementById('uiDeviceName').innerText = currentDev.name;
+            document.getElementById('uiPlateNumber').innerText = currentDev.plateNumber || 'Chưa có biển số';
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách thiết bị:', err);
+      }
     }
 
-    // 3. Lấy dữ liệu mới nhất từ Server
-    async function fetchLatest() {
+    function renderDeviceListModal() {
+      const container = document.getElementById('devicesContainer');
+      container.innerHTML = '';
+      devicesList.forEach(dev => {
+        const isAct = dev.id === selectedDeviceId;
+        const div = document.createElement('div');
+        div.className = `device-item-card ${isAct ? 'active' : ''}`;
+        div.innerHTML = `
+          <div>
+            <div style="font-weight: 700; font-size: 15px; color: var(--apple-dark);">${dev.name}</div>
+            <div style="font-size: 12px; color: var(--apple-gray);">Biển số: <b>${dev.plateNumber || 'Chưa gán'}</b> | ID: <code>${dev.id}</code></div>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 12px; font-weight: 700; color: ${dev.latest ? 'var(--apple-green)' : 'var(--apple-gray)'};">
+              ${dev.latest ? (dev.latest.speed > 5 ? 'Đang chạy' : 'Đang dừng') : 'Chưa có sóng'}
+            </span>
+          </div>
+        `;
+        div.addEventListener('click', () => {
+          selectedDeviceId = dev.id;
+          localStorage.setItem('findmy_selected_device', selectedDeviceId);
+          document.getElementById('topDeviceTitle').innerText = dev.name;
+          document.getElementById('uiDeviceName').innerText = dev.name;
+          document.getElementById('uiPlateNumber').innerText = dev.plateNumber || 'Chưa có biển số';
+          document.getElementById('deviceListModal').style.display = 'none';
+          fetchLatest();
+        });
+        container.appendChild(div);
+      });
+    }
+
+    // Modal Events
+    document.getElementById('btnDeviceList').addEventListener('click', () => {
+      renderDeviceListModal();
+      document.getElementById('deviceListModal').style.display = 'flex';
+    });
+    document.getElementById('btnCloseDeviceList').addEventListener('click', () => {
+      document.getElementById('deviceListModal').style.display = 'none';
+    });
+
+    document.getElementById('btnAddDevice').addEventListener('click', () => {
+      document.getElementById('addDeviceModal').style.display = 'flex';
+    });
+    document.getElementById('btnCloseAddDevice').addEventListener('click', () => {
+      document.getElementById('addDeviceModal').style.display = 'none';
+    });
+
+    document.getElementById('formAddDevice').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('addDeviceName').value.trim();
+      const id = document.getElementById('addDeviceId').value.trim();
+      const plateNumber = document.getElementById('addDevicePlate').value.trim();
+
       try {
-        const res = await fetch('/api/latest');
+        const res = await fetch('/api/devices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ id, name, plateNumber })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Đã thêm thiết bị mới thành công!');
+          document.getElementById('addDeviceModal').style.display = 'none';
+          document.getElementById('formAddDevice').reset();
+          loadDevices();
+        } else {
+          alert(data.message || 'Lỗi lưu thiết bị');
+        }
+      } catch (err) {
+        alert('Lỗi kết nối khi thêm thiết bị');
+      }
+    });
+
+    // === 4. DỮ LIỆU ĐỊNH VỊ VÀ ĐỊA CHỈ CHI TIẾT ===
+    async function fetchLatest() {
+      if (!authToken) return;
+      try {
+        const res = await fetch(`/api/latest?deviceId=${selectedDeviceId}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
         const json = await res.json();
         if (json.success && json.data) {
           updateUI(json.data);
@@ -568,56 +1031,150 @@
 
     function updateUI(data) {
       currentPos = [data.latitude, data.longitude];
+      currentSpeed = data.speed || 0;
       
-      if (map) {
-        if (!liveMarker) {
-          liveMarker = L.marker(currentPos, { icon: carMarkerIcon }).addTo(map);
-        } else {
-          liveMarker.setLatLng(currentPos);
-        }
-      }
+      liveMarker.setLatLng(currentPos);
 
-      document.getElementById('uiSpeed').innerText = data.speed || 0;
-      document.getElementById('uiSpeedStatus').innerText = data.speed > 5 ? 'Đang di chuyển' : 'Đang dừng';
-      document.getElementById('uiNetwork').innerText = data.networkType || '4G';
+      document.getElementById('uiSpeed').innerText = currentSpeed;
+      document.getElementById('uiSpeedStatus').innerText = currentSpeed > 5 ? 'Đang di chuyển' : 'Đang dừng';
+      document.getElementById('uiNetwork').innerText = data.networkType || '4G LTE';
       document.getElementById('uiBattery').innerText = data.battery || '--';
-      document.getElementById('uiCoords').innerText = `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+      document.getElementById('uiCoords').innerText = `Tọa độ: ${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
       
       const timeStr = new Date(data.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       document.getElementById('uiLastUpdated').innerText = `Cập nhật lúc ${timeStr}`;
 
-      if (data.address) {
-        document.getElementById('uiAddress').innerText = data.address;
-      } else {
-        reverseGeocode(data.latitude, data.longitude);
+      // Lấy địa chỉ chi tiết (số nhà, đường, phường, quận)
+      fetchDetailedAddress(data.latitude, data.longitude);
+
+      // Cập nhật cảnh báo tốc độ nếu đang dẫn đường
+      checkSpeedLimitWarning();
+    }
+
+    // Geocoding chi tiết tiếng Việt
+    async function fetchDetailedAddress(lat, lon) {
+      try {
+        const res = await fetch(`/api/reverse-geocode?lat=${lat}&lon=${lon}`);
+        const data = await res.json();
+        if (data.success && data.address) {
+          document.getElementById('uiAddress').innerText = data.address;
+        } else {
+          // Fallback OSM Nominatim
+          const fallbackRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=vi`);
+          const fb = await fallbackRes.json();
+          if (fb && fb.display_name) {
+            document.getElementById('uiAddress').innerText = fb.display_name;
+          }
+        }
+      } catch (e) {
+        document.getElementById('uiAddress').innerText = `Tọa độ: ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
       }
     }
 
-    async function reverseGeocode(lat, lon) {
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-        const data = await res.json();
-        if (data && data.display_name) {
-          document.getElementById('uiAddress').innerText = data.display_name;
-        }
-      } catch (e) {}
-    }
-
-    // Định vị xe
     document.getElementById('btnFocusCar').addEventListener('click', () => {
-      if (map && currentPos) {
+      if (currentPos) {
         map.flyTo(currentPos, 17, { duration: 1.2 });
       }
     });
 
-    document.getElementById('btnRefresh').addEventListener('click', fetchLatest);
+    // === 5. DẪN ĐƯỜNG, BIỂN BÁO GIAO THÔNG & TỐC ĐỘ GIỚI HẠN ===
+    const navHud = document.getElementById('navHud');
+    const speedSignValue = document.getElementById('speedSignValue');
 
-    // Mở / Đóng thanh xem lại lộ trình
+    document.getElementById('btnStartNavPrompt').addEventListener('click', () => {
+      isSelectingDestination = true;
+      alert('👉 Vui lòng chạm vào một điểm bất kỳ trên bản đồ để đặt điểm cần đến!');
+    });
+
+    map.on('click', (e) => {
+      if (isSelectingDestination) {
+        isSelectingDestination = false;
+        startNavigationTo(e.latlng.lat, e.latlng.lng);
+      }
+    });
+
+    async function startNavigationTo(destLat, destLon) {
+      try {
+        // Gọi dịch vụ dẫn đường OSRM driving
+        const url = `https://router.project-osrm.org/route/v1/driving/${currentPos[1]},${currentPos[0]};${destLon},${destLat}?overview=full&geometries=geojson&steps=true`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.routes || data.routes.length === 0) {
+          alert('Không tìm được lộ trình đường đi!');
+          return;
+        }
+
+        const route = data.routes[0];
+        const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+        // Vẽ dải đường dẫn màu xanh dương
+        if (navRouteLine) map.removeLayer(navRouteLine);
+        navRouteLine = L.polyline(coordinates, {
+          color: '#0071e3',
+          weight: 6,
+          opacity: 0.9,
+          lineJoin: 'round'
+        }).addTo(map);
+
+        // Đặt cờ đích đến
+        if (destMarker) map.removeLayer(destMarker);
+        destMarker = L.marker([destLat, destLon]).addTo(map).bindPopup('Điểm đến của bạn').openPopup();
+
+        map.fitBounds(navRouteLine.getBounds(), { padding: [80, 80] });
+
+        // Hiển thị thanh HUD dẫn đường
+        navHud.style.display = 'flex';
+        const distKm = (route.distance / 1000).toFixed(1);
+        const durationMin = Math.round(route.duration / 60);
+        document.getElementById('navTextDistance').innerText = `Còn ${distKm} km (~${durationMin} phút)`;
+        
+        const firstStep = route.legs[0]?.steps[0];
+        document.getElementById('navTextRoad').innerText = firstStep?.name ? `Đi vào ${firstStep.name}` : 'Bắt đầu lộ trình';
+
+        // Xác định tốc độ giới hạn theo khung đường:
+        // Đoán theo tốc độ trung bình lộ trình hoặc khu vực
+        if (route.distance > 20000 && (route.distance / route.duration * 3.6) > 70) {
+          currentSpeedLimit = 100; // Khung đường cao tốc / quốc lộ
+        } else if (distKm > 5) {
+          currentSpeedLimit = 60;  // Đường đôi ngoài đô thị
+        } else {
+          currentSpeedLimit = 50;  // Đường nội đô / khu đông dân cư
+        }
+        speedSignValue.innerText = currentSpeedLimit;
+
+        checkSpeedLimitWarning();
+      } catch (err) {
+        alert('Lỗi tính toán dẫn đường OSRM');
+      }
+    }
+
+    function checkSpeedLimitWarning() {
+      if (navHud.style.display === 'flex') {
+        if (currentSpeed > currentSpeedLimit) {
+          speedSignValue.classList.add('warning');
+          document.getElementById('speedSignLabel').innerText = '⚠️ QUÁ TỐC ĐỘ!';
+          document.getElementById('speedSignLabel').style.color = '#ff3b30';
+        } else {
+          speedSignValue.classList.remove('warning');
+          document.getElementById('speedSignLabel').innerText = 'TỐC ĐỘ TỐI ĐA';
+          document.getElementById('speedSignLabel').style.color = '#8e8e93';
+        }
+      }
+    }
+
+    document.getElementById('btnExitNav').addEventListener('click', () => {
+      navHud.style.display = 'none';
+      if (navRouteLine) { map.removeLayer(navRouteLine); navRouteLine = null; }
+      if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+    });
+
+    // === 6. XEM LẠI LỘ TRÌNH 7 NGÀY (PLAYBACK) ===
     const playbackStrip = document.getElementById('playbackStrip');
     document.getElementById('btnOpenPlayback').addEventListener('click', () => {
       if (playbackStrip.style.display === 'block') {
         playbackStrip.style.display = 'none';
-        if (historyPolyline && map) map.removeLayer(historyPolyline);
+        if (historyPolyline) map.removeLayer(historyPolyline);
       } else {
         playbackStrip.style.display = 'block';
         const today = new Date().toISOString().split('T')[0];
@@ -632,11 +1189,13 @@
 
     async function loadHistory(dateStr) {
       try {
-        const res = await fetch(`/api/history?date=${dateStr}`);
+        const res = await fetch(`/api/history?deviceId=${selectedDeviceId}&date=${dateStr}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
         const json = await res.json();
         historyPoints = json.data || [];
 
-        if (historyPolyline && map) map.removeLayer(historyPolyline);
+        if (historyPolyline) map.removeLayer(historyPolyline);
 
         if (historyPoints.length === 0) {
           alert('Không có dữ liệu lộ trình cho ngày này!');
@@ -665,9 +1224,7 @@
     function updatePlaybackPoint(index) {
       if (!historyPoints[index]) return;
       const point = historyPoints[index];
-      if (liveMarker) {
-        liveMarker.setLatLng([point.latitude, point.longitude]);
-      }
+      liveMarker.setLatLng([point.latitude, point.longitude]);
       const timeStr = new Date(point.timestamp).toLocaleTimeString('vi-VN');
       document.getElementById('playbackCurrentTime').innerText = timeStr;
       document.getElementById('playbackSpeedText').innerText = `${point.speed} km/h - Pin: ${point.battery}%`;
@@ -700,12 +1257,14 @@
       }
     });
 
-    // Modal Báo Cáo Kilomet Tháng
+    // === 7. BÁO CÁO KILOMET THÁNG ===
     const reportModal = document.getElementById('reportModal');
     document.getElementById('btnReport').addEventListener('click', async () => {
       reportModal.style.display = 'flex';
       try {
-        const res = await fetch('/api/mileage-report');
+        const res = await fetch(`/api/mileage-report?deviceId=${selectedDeviceId}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
         const json = await res.json();
         if (json.success) {
           document.getElementById('uiTotalMonthKm').innerText = json.totalMonthKm;
@@ -722,7 +1281,7 @@
             div.style.cssText = 'background: #f8f8fa; border-radius: 14px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;';
             div.innerHTML = `
               <div>
-                <div style="font-weight: 700; font-size: 14px;">${item.date}</div>
+                <div style="font-weight: 700; font-size: 14px;">📅 ${item.date}</div>
                 <div style="font-size: 11px; color: var(--apple-gray);">Tốc độ cao nhất: ${item.maxSpeed || 0} km/h</div>
               </div>
               <div style="font-weight: 800; font-size: 16px; color: var(--apple-blue);">
@@ -741,9 +1300,15 @@
       reportModal.style.display = 'none';
     });
 
-    // Tự động kiểm tra dữ liệu mỗi 5 giây
-    fetchLatest();
-    setInterval(fetchLatest, 5000);
+    // Khởi tạo hệ thống
+    function initApp() {
+      loadDevices();
+      fetchLatest();
+      setInterval(fetchLatest, 5000);
+    }
+
+    // Bắt đầu kiểm tra đăng nhập
+    checkAuth();
   </script>
 </body>
 </html>
